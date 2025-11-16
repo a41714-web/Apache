@@ -1,0 +1,96 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Apache.Views.LoginPage"
+             Title="Apache Login"
+             BackgroundColor="#F0F0F0">
+
+    <VerticalStackLayout Padding="20" Spacing="15" VerticalOptions="Center">
+        
+        <!-- Header -->
+        <Label Text="Apache"
+               FontSize="36"
+               FontAttributes="Bold"
+               HorizontalTextAlignment="Center"
+               TextColor="#FF9800"/>
+
+        <Label Text="Your Online Marketplace"
+               FontSize="14"
+               HorizontalTextAlignment="Center"
+               TextColor="#666"/>
+
+        <!-- Mode Indicator -->
+        <Frame BackgroundColor="#E8F5E9" CornerRadius="8" Padding="10">
+            <Label x:Name="ModeLabel" 
+                   Text="Customer Login Mode"
+                   HorizontalTextAlignment="Center"
+                   TextColor="#2E7D32"
+                   FontAttributes="Bold"/>
+        </Frame>
+
+        <!-- Email Entry -->
+        <Label Text="Email Address"
+               FontSize="14"
+               FontAttributes="Bold"
+               TextColor="#333"/>
+        <Entry Placeholder="Enter your email"
+               Text="{Binding Email}"
+               Keyboard="Email"
+               BackgroundColor="White"/>
+
+        <!-- Password Entry -->
+        <Label Text="Password"
+               FontSize="14"
+               FontAttributes="Bold"
+               TextColor="#333"/>
+        <Entry Placeholder="Enter your password"
+               Text="{Binding Password}"
+               IsPassword="True"
+               BackgroundColor="White"/>
+
+        <!-- Error Message -->
+        <Label Text="{Binding ErrorMessage}"
+               TextColor="Red"
+               FontSize="12"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringToBoolConverter}}"/>
+
+        <!-- Login Button -->
+        <Button Text="Login"
+                Command="{Binding LoginCommand}"
+                BackgroundColor="#FF9800"
+                TextColor="White"
+                FontAttributes="Bold"
+                Padding="10"
+                CornerRadius="8"/>
+
+        <!-- Loading Indicator -->
+        <ActivityIndicator IsRunning="{Binding IsLoading}"
+                          IsVisible="{Binding IsLoading}"
+                          Color="#FF9800"
+                          Margin="0,20,0,0"/>
+
+        <!-- Toggle Mode Button -->
+        <Button Text="Switch to Admin Login"
+                Command="{Binding ToggleModeCommand}"
+                BackgroundColor="Transparent"
+                TextColor="#FF9800"
+                FontAttributes="Bold"
+                Padding="10"/>
+
+        <!-- Demo Credentials -->
+        <Frame BackgroundColor="#FFF3E0" CornerRadius="8" Padding="10" Margin="0,20,0,0">
+            <VerticalStackLayout Spacing="5">
+                <Label Text="Demo Credentials"
+                       FontAttributes="Bold"
+                       TextColor="#E65100"/>
+                <Label Text="Customer: john@example.com / password123"
+                       FontSize="12"
+                       TextColor="#333"/>
+                <Label Text="Admin: admin@apache.com / adminpass123"
+                       FontSize="12"
+                       TextColor="#333"/>
+            </VerticalStackLayout>
+        </Frame>
+
+    </VerticalStackLayout>
+
+</ContentPage>
