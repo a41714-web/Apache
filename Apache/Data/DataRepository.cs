@@ -3,6 +3,7 @@ using Apache.Services;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 
 namespace Apache.Data
 {
@@ -473,7 +474,8 @@ namespace Apache.Data
                                     OrderDate = (DateTime)reader["OrderDate"],
                                     Status = Enum.Parse<OrderStatus>((string)reader["Status"])
                                 };
-                                order.Items.AddRange(GetOrderItems(connection, orderId));
+                                // Fetch items using a separate connection to avoid nested readers
+                                order.Items.AddRange(GetOrderItems(orderId));
                                 orders.Add(order);
                             }
                         }
@@ -512,7 +514,8 @@ namespace Apache.Data
                                     OrderDate = (DateTime)reader["OrderDate"],
                                     Status = Enum.Parse<OrderStatus>((string)reader["Status"])
                                 };
-                                order.Items.AddRange(GetOrderItems(connection, orderId));
+                                // Fetch items using a separate connection to avoid nested readers
+                                order.Items.AddRange(GetOrderItems(orderId));
                                 orders.Add(order);
                             }
                         }
@@ -776,27 +779,40 @@ namespace Apache.Data
 
         /// <summary>
         /// Helper method to fetch order items from the database.
+        /// This version opens its own connection to avoid nested DataReaders on the same connection.
         /// </summary>
-        private List<OrderItem> GetOrderItems(MySqlConnection connection, int orderId)
+        private List<OrderItem> GetOrderItems(int orderId)
         {
             var items = new List<OrderItem>();
-            using (var command = connection.CreateCommand())
+            try
             {
-                command.CommandText = "SELECT ProductId, ProductName, UnitPrice, Quantity FROM OrderItems WHERE OrderId = @OrderId;";
-                command.Parameters.AddWithValue("@OrderId", orderId);
-                using (var reader = command.ExecuteReader())
+                using (var connection = new MySqlConnection(_connectionString))
                 {
-                    while (reader.Read())
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
                     {
-                        items.Add(new OrderItem
+                        command.CommandText = "SELECT ProductId, ProductName, UnitPrice, Quantity FROM OrderItems WHERE OrderId = @OrderId;";
+                        command.Parameters.AddWithValue("@OrderId", orderId);
+                        using (var reader = command.ExecuteReader())
                         {
-                            ProductId = (int)reader["ProductId"],
-                            ProductName = (string)reader["ProductName"],
-                            UnitPrice = (decimal)reader["UnitPrice"],
-                            Quantity = (int)reader["Quantity"]
-                        });
+                            while (reader.Read())
+                            {
+                                items.Add(new OrderItem
+                                {
+                                    ProductId = (int)reader["ProductId"],
+                                    ProductName = (string)reader["ProductName"],
+                                    UnitPrice = (decimal)reader["UnitPrice"],
+                                    Quantity = (int)reader["Quantity"]
+                                });
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error fetching order items for order {orderId}", ex);
+                // return empty list on failure to allow callers to handle gracefully
             }
             return items;
         }

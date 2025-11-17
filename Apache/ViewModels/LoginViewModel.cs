@@ -7,11 +7,6 @@ using Microsoft.Maui.Controls;
 
 namespace Apache.ViewModels
 {
-    /// <summary>
-    /// ViewModel for authentication (login) screen.
-    /// Handles both customer and admin login scenarios.
-    /// Automatically sets the login mode based on the platform.
-    /// </summary>
     public class LoginViewModel : BaseViewModel
     {
         private string _email;
@@ -60,36 +55,28 @@ namespace Apache.ViewModels
             _repository = DataRepository.Instance;
             _logger = LoggingService.Instance;
 
-            // Detect platform and set login mode accordingly
             DetectPlatformAndSetMode();
 
             LoginCommand = new RelayCommand(async () => await ExecuteLogin());
             ToggleModeCommand = new RelayCommand(() => ToggleLoginMode());
         }
 
-        /// <summary>
-        /// Detects the current platform and sets the login mode accordingly.
-        /// Android = Customer Mode, Desktop (Windows/macOS) = Admin Mode
-        /// </summary>
         private void DetectPlatformAndSetMode()
         {
             if (DeviceInfo.Platform == DevicePlatform.Android)
             {
                 IsCustomerMode = true;
                 CanToggleMode = false;
-                _logger.LogDebug("Platform detected: Android - Customer Mode enabled, toggle disabled");
+                _logger.LogDebug("Platform: Android - Customer Mode");
             }
             else
             {
                 IsCustomerMode = false;
                 CanToggleMode = false;
-                _logger.LogDebug("Platform detected: Desktop - Admin Mode enabled, toggle disabled");
+                _logger.LogDebug("Platform: Desktop - Admin Mode");
             }
         }
 
-        /// <summary>
-        /// Attempts to authenticate the user with provided credentials.
-        /// </summary>
         private async Task ExecuteLogin()
         {
             try
@@ -102,9 +89,7 @@ namespace Apache.ViewModels
                 }
 
                 IsLoading = true;
-
-                // Simulate network delay
-                await Task.Delay(500);
+                await Task.Delay(500); // Simulate network delay
 
                 if (IsCustomerMode)
                 {
@@ -112,7 +97,7 @@ namespace Apache.ViewModels
                     if (customer != null)
                     {
                         _logger.LogInfo($"Customer login successful: {Email}");
-                        // Use registered route name (no leading slashes) for registered routes
+                        // Use proper navigation with parameters
                         await Shell.Current.GoToAsync($"customer?id={customer.Id}");
                     }
                     else
@@ -138,6 +123,7 @@ namespace Apache.ViewModels
             {
                 ErrorMessage = ex.Message;
                 _logger.LogError("Login failed", ex);
+                await Application.Current.MainPage.DisplayAlert("Login Error", ex.Message, "OK");
             }
             finally
             {
@@ -145,15 +131,11 @@ namespace Apache.ViewModels
             }
         }
 
-        /// <summary>
-        /// Toggles between customer and admin login modes.
-        /// NOTE: This is disabled on platform-specific builds where the mode is fixed.
-        /// </summary>
         private void ToggleLoginMode()
         {
             if (!CanToggleMode)
             {
-                _logger.LogDebug("Login mode toggle is disabled for this platform");
+                _logger.LogDebug("Login mode toggle disabled");
                 return;
             }
 
@@ -161,7 +143,7 @@ namespace Apache.ViewModels
             Email = string.Empty;
             Password = string.Empty;
             ErrorMessage = string.Empty;
-            _logger.LogDebug($"Login mode switched to: {(IsCustomerMode ? "Customer" : "Admin")}");
+            _logger.LogDebug($"Mode: {(IsCustomerMode ? "Customer" : "Admin")}");
         }
     }
 }

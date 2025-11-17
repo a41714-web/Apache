@@ -5,6 +5,9 @@ using System.Xml.Linq;
 using System.IO;
 using System;
 using System.Linq;
+using Microsoft.Maui.Storage;
+using System.Threading.Tasks;
+using Microsoft.Maui.Devices;
 
 namespace Apache.Data
 {
@@ -16,6 +19,9 @@ namespace Apache.Data
         private readonly string _connectionString;
         private readonly string _noDatabaseConnectionString;
         private readonly LoggingService _logger;
+        private bool _isOnline = false;
+        private const int MaxRetries = 3;
+        private const int RetryDelayMs = 1000;
 
         // Construtor que aceita uma string de conexão.
         public DatabaseConfig(string connectionString, string noDatabaseConnectionString = null)
@@ -46,6 +52,11 @@ namespace Apache.Data
         }
 
         public string ConnectionString => _connectionString;
+        
+        /// <summary>
+        /// Indica se a aplicação está em modo online (conectado ao banco de dados).
+        /// </summary>
+        public bool IsOnline => _isOnline;
 
         /// <summary>
         /// Initializes the database with required tables if they don't exist.
@@ -54,15 +65,98 @@ namespace Apache.Data
         {
             try
             {
-                CreateDatabaseIfNotExists();
-                CreateTablesIfNotExist();
-                SeedInitialData();
-                _logger.LogInfo("Database initialized successfully");
+                // Tentar conectar com retry automático
+                if (TryConnectWithRetry())
+                {
+                    _isOnline = true;
+                    CreateDatabaseIfNotExists();
+                    CreateTablesIfNotExist();
+                    SeedInitialData();
+                    _logger.LogInfo("Database initialized successfully");
+                }
+                else
+                {
+                    _isOnline = false;
+                    _logger.LogWarning("Database initialization skipped - running in offline mode. The application will use local cache or mock data.");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error initializing database", ex);
-                throw;
+                _isOnline = false;
+                _logger.LogError("Error initializing database. Application will continue in offline mode.", ex);
+                // Não relançar a exceção - permitir que a aplicação continue em modo offline
+            }
+        }
+
+        /// <summary>
+        /// Tenta conectar ao banco de dados com retry automático.
+        /// </summary>
+        private bool TryConnectWithRetry()
+        {
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    _logger.LogDebug($"Attempting to connect to database (attempt {attempt}/{MaxRetries})");
+                    
+                    using (var connection = new MySqlConnection(_noDatabaseConnectionString))
+                    {
+                        connection.Open();
+                        _logger.LogInfo("Successfully connected to database");
+                        return true;
+                    }
+                }
+                catch (MySqlException sqlEx)
+                {
+                    _logger.LogWarning($"Database connection attempt {attempt} failed: {sqlEx.Message}");
+                    
+                    if (attempt < MaxRetries)
+                    {
+                        System.Threading.Thread.Sleep(RetryDelayMs * attempt); // Backoff progressivo
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Unexpected error during database connection attempt {attempt}", ex);
+                    if (attempt < MaxRetries)
+                    {
+                        System.Threading.Thread.Sleep(RetryDelayMs * attempt);
+                    }
+                }
+            }
+
+            _logger.LogError("Failed to connect to database after {0} attempts. The application will continue in offline mode.", null);
+            return false;
+        }
+
+        /// <summary>
+        /// Executar uma operação de banco de dados com tratamento de erro gracioso.
+        /// </summary>
+        private bool ExecuteWithFallback(Action<MySqlConnection> action)
+        {
+            if (!_isOnline)
+                return false;
+
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    action(connection);
+                    return true;
+                }
+            }
+            catch (MySqlException sqlEx)
+            {
+                _logger.LogWarning($"Database operation failed: {sqlEx.Message}. Switching to offline mode.");
+                _isOnline = false;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Unexpected error during database operation", ex);
+                _isOnline = false;
+                return false;
             }
         }
 
@@ -71,24 +165,15 @@ namespace Apache.Data
         /// </summary>
         private void CreateDatabaseIfNotExists()
         {
-            using (var connection = new MySqlConnection(_noDatabaseConnectionString))
+            ExecuteWithFallback(connection =>
             {
-                try
+                using (var command = connection.CreateCommand())
                 {
-                    connection.Open();
-                    using (var command = connection.CreateCommand())
-                    {
-                        command.CommandText = "CREATE DATABASE IF NOT EXISTS apache_db;";
-                        command.ExecuteNonQuery();
-                        _logger.LogInfo("Database 'apache_db' ready");
-                    }
+                    command.CommandText = "CREATE DATABASE IF NOT EXISTS apache_db;";
+                    command.ExecuteNonQuery();
+                    _logger.LogInfo("Database 'apache_db' ready");
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError("Error creating database", ex);
-                    throw;
-                }
-            }
+            });
         }
 
         /// <summary>
@@ -96,87 +181,77 @@ namespace Apache.Data
         /// </summary>
         private void CreateTablesIfNotExist()
         {
-            using (var connection = new MySqlConnection(_connectionString))
+            ExecuteWithFallback(connection =>
             {
-                try
-                {
-                    connection.Open();
+                // Create Products table
+                string createProductsTable = @"
+                    CREATE TABLE IF NOT EXISTS Products (
+                        Id INT PRIMARY KEY AUTO_INCREMENT,
+                        Name VARCHAR(255) NOT NULL,
+                        Description TEXT,
+                        Price DECIMAL(10, 2) NOT NULL,
+                        Stock INT NOT NULL,
+                        Category VARCHAR(100),
+                        ImageUrl VARCHAR(255),
+                        CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );";
 
-                    // Create Products table
-                    string createProductsTable = @"
-                        CREATE TABLE IF NOT EXISTS Products (
-                            Id INT PRIMARY KEY AUTO_INCREMENT,
-                            Name VARCHAR(255) NOT NULL,
-                            Description TEXT,
-                            Price DECIMAL(10, 2) NOT NULL,
-                            Stock INT NOT NULL,
-                            Category VARCHAR(100),
-                            ImageUrl VARCHAR(255),
-                            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );";
+                // Create Customers table
+                string createCustomersTable = @"
+                    CREATE TABLE IF NOT EXISTS Customers (
+                        Id INT PRIMARY KEY AUTO_INCREMENT,
+                        Name VARCHAR(255) NOT NULL,
+                        Email VARCHAR(255) NOT NULL UNIQUE,
+                        Password VARCHAR(255) NOT NULL,
+                        Address VARCHAR(500),
+                        PhoneNumber VARCHAR(20),
+                        CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        IsActive BOOLEAN DEFAULT TRUE
+                    );";
 
-                    // Create Customers table
-                    string createCustomersTable = @"
-                        CREATE TABLE IF NOT EXISTS Customers (
-                            Id INT PRIMARY KEY AUTO_INCREMENT,
-                            Name VARCHAR(255) NOT NULL,
-                            Email VARCHAR(255) NOT NULL UNIQUE,
-                            Password VARCHAR(255) NOT NULL,
-                            Address VARCHAR(500),
-                            PhoneNumber VARCHAR(20),
-                            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            IsActive BOOLEAN DEFAULT TRUE
-                        );";
+                // Create Admins table
+                string createAdminsTable = @"
+                    CREATE TABLE IF NOT EXISTS Admins (
+                        Id INT PRIMARY KEY AUTO_INCREMENT,
+                        Name VARCHAR(255) NOT NULL,
+                        Email VARCHAR(255) NOT NULL UNIQUE,
+                        Password VARCHAR(255) NOT NULL,
+                        Department VARCHAR(100),
+                        CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        IsActive BOOLEAN DEFAULT TRUE
+                    );";
 
-                    // Create Admins table
-                    string createAdminsTable = @"
-                        CREATE TABLE IF NOT EXISTS Admins (
-                            Id INT PRIMARY KEY AUTO_INCREMENT,
-                            Name VARCHAR(255) NOT NULL,
-                            Email VARCHAR(255) NOT NULL UNIQUE,
-                            Password VARCHAR(255) NOT NULL,
-                            Department VARCHAR(100),
-                            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            IsActive BOOLEAN DEFAULT TRUE
-                        );";
+                // Create Orders table
+                string createOrdersTable = @"
+                    CREATE TABLE IF NOT EXISTS Orders (
+                        Id INT PRIMARY KEY AUTO_INCREMENT,
+                        CustomerId INT NOT NULL,
+                        OrderDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        Status VARCHAR(50) DEFAULT 'Pending',
+                        FOREIGN KEY (CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE
+                    );";
 
-                    // Create Orders table
-                    string createOrdersTable = @"
-                        CREATE TABLE IF NOT EXISTS Orders (
-                            Id INT PRIMARY KEY AUTO_INCREMENT,
-                            CustomerId INT NOT NULL,
-                            OrderDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            Status VARCHAR(50) DEFAULT 'Pending',
-                            FOREIGN KEY (CustomerId) REFERENCES Customers(Id)
-                        );";
+                // Create OrderItems table
+                string createOrderItemsTable = @"
+                    CREATE TABLE IF NOT EXISTS OrderItems (
+                        Id INT PRIMARY KEY AUTO_INCREMENT,
+                        OrderId INT NOT NULL,
+                        ProductId INT NOT NULL,
+                        ProductName VARCHAR(255),
+                        UnitPrice DECIMAL(10, 2),
+                        Quantity INT NOT NULL,
+                        FOREIGN KEY (OrderId) REFERENCES Orders(Id) ON DELETE CASCADE,
+                        FOREIGN KEY (ProductId) REFERENCES Products(Id) ON DELETE CASCADE
+                    );";
 
-                    // Create OrderItems table
-                    string createOrderItemsTable = @"
-                        CREATE TABLE IF NOT EXISTS OrderItems (
-                            Id INT PRIMARY KEY AUTO_INCREMENT,
-                            OrderId INT NOT NULL,
-                            ProductId INT NOT NULL,
-                            ProductName VARCHAR(255),
-                            UnitPrice DECIMAL(10, 2),
-                            Quantity INT NOT NULL,
-                            FOREIGN KEY (OrderId) REFERENCES Orders(Id),
-                            FOREIGN KEY (ProductId) REFERENCES Products(Id)
-                        );";
+                ExecuteCommand(connection, createProductsTable);
+                ExecuteCommand(connection, createCustomersTable);
+                ExecuteCommand(connection, createAdminsTable);
+                ExecuteCommand(connection, createOrdersTable);
+                ExecuteCommand(connection, createOrderItemsTable);
 
-                    ExecuteCommand(connection, createProductsTable);
-                    ExecuteCommand(connection, createCustomersTable);
-                    ExecuteCommand(connection, createAdminsTable);
-                    ExecuteCommand(connection, createOrdersTable);
-                    ExecuteCommand(connection, createOrderItemsTable);
-
-                    _logger.LogInfo("Database tables created/verified");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError("Error creating tables", ex);
-                    throw;
-                }
-            }
+                _logger.LogInfo("Database tables created/verified");
+            });
         }
 
         /// <summary>
@@ -184,33 +259,23 @@ namespace Apache.Data
         /// </summary>
         private void SeedInitialData()
         {
-            using (var connection = new MySqlConnection(_connectionString))
+            ExecuteWithFallback(connection =>
             {
-                try
+                // Check if products table is empty
+                using (var command = connection.CreateCommand())
                 {
-                    connection.Open();
+                    command.CommandText = "SELECT COUNT(*) FROM Products;";
+                    int productCount = command.ExecuteScalar() is long count ? (int)count : 0;
 
-                    // Check if products table is empty
-                    using (var command = connection.CreateCommand())
+                    if (productCount == 0)
                     {
-                        command.CommandText = "SELECT COUNT(*) FROM Products;";
-                        int productCount = (int)(long)command.ExecuteScalar();
-
-                        if (productCount == 0)
-                        {
-                            SeedProducts(connection);
-                            SeedCustomers(connection);
-                            SeedAdmins(connection);
-                            _logger.LogInfo("Initial data seeded successfully");
-                        }
+                        SeedProducts(connection);
+                        SeedCustomers(connection);
+                        SeedAdmins(connection);
+                        _logger.LogInfo("Initial data seeded successfully");
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError("Error seeding initial data", ex);
-                    throw;
-                }
-            }
+            });
         }
 
         /// <summary>
@@ -264,10 +329,18 @@ namespace Apache.Data
         /// </summary>
         private void ExecuteCommand(MySqlConnection connection, string commandText)
         {
-            using (var command = connection.CreateCommand())
+            try
             {
-                command.CommandText = commandText;
-                command.ExecuteNonQuery();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = commandText;
+                    command.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error executing SQL command: {ex.Message}");
+                // Continuar mesmo se um comando individual falhar
             }
         }
 
@@ -277,7 +350,11 @@ namespace Apache.Data
             {
                 var fromConfigManager = ConfigurationManager.ConnectionStrings[name]?.ConnectionString;
                 if (!string.IsNullOrWhiteSpace(fromConfigManager))
-                    return fromConfigManager;
+                    return AdjustForPlatform(fromConfigManager);
+
+                // For Android/MAUI apps, try to load from assembly resources or app context
+                if (TryLoadFromAsset(name, out var assetConnectionString))
+                    return AdjustForPlatform(assetConnectionString);
 
                 // Tentar encontrar um Config.xml na pasta do aplicativo ou em pastas pai
                 var baseDir = AppContext.BaseDirectory;
@@ -296,7 +373,7 @@ namespace Apache.Data
                                         .FirstOrDefault(e => (string)e.Attribute("name") == name);
                             var cs = (string?)add?.Attribute("connectionString");
                             if (!string.IsNullOrWhiteSpace(cs))
-                                return cs;
+                                return AdjustForPlatform(cs);
                         }
                         catch
                         {
@@ -311,6 +388,76 @@ namespace Apache.Data
             catch
             {
                 return null;
+            }
+        }
+
+        private static bool TryLoadFromAsset(string connectionStringName, out string connectionString)
+        {
+            connectionString = null;
+            try
+            {
+                // Try to load Config.xml from app context or files directory
+                var configPath = Path.Combine(FileSystem.AppDataDirectory, "Config.xml");
+                if (File.Exists(configPath))
+                {
+                    var doc = XDocument.Load(configPath);
+                    var add = doc.Root?
+                                .Element("connectionStrings")?
+                                .Elements("add")
+                                .FirstOrDefault(e => (string)e.Attribute("name") == connectionStringName);
+                    var cs = (string?)add?.Attribute("connectionString");
+                    if (!string.IsNullOrWhiteSpace(cs))
+                    {
+                        connectionString = AdjustForPlatform(cs);
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors
+            }
+
+            return false;
+        }
+
+        private static string AdjustForPlatform(string connectionString)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(connectionString))
+                    return connectionString;
+
+                // If running on Android emulator, "localhost" refers to the emulator itself.
+                // Common emulator host mapping: 10.0.2.2 (Android emulator), 10.0.3.2 (Genymotion)
+                if (DeviceInfo.Platform == DevicePlatform.Android)
+                {
+                    // Prefer 10.0.2.2 for the default Android emulator
+                    if (connectionString.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0
+                        || connectionString.IndexOf("127.0.0.1", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        var replaced = connectionString
+                            .Replace("localhost", "10.0.2.2", StringComparison.OrdinalIgnoreCase)
+                            .Replace("127.0.0.1", "10.0.2.2", StringComparison.OrdinalIgnoreCase);
+
+                        try
+                        {
+                            LoggingService.Instance?.LogWarning($"Adjusted connection string for Android emulator: '{connectionString}' => '{replaced}'");
+                        }
+                        catch
+                        {
+                            // ignore logging errors
+                        }
+
+                        return replaced;
+                    }
+                }
+
+                return connectionString;
+            }
+            catch
+            {
+                return connectionString;
             }
         }
 

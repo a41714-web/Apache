@@ -11,7 +11,7 @@ namespace Apache
             // Register platform specific routes
             if (DeviceInfo.Platform == DevicePlatform.Android)
             {
-                Routing.RegisterRoute("customer", typeof(Views.CustomerPage));
+                Routing.RegisterRoute("customer", typeof(Views.CustomerAndroidPage));
             }
             else
             {

@@ -4,6 +4,8 @@ using Apache.ViewModels;
 using Apache.Data;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.Controls;
+using System;
+using System.Linq;
 
 namespace Apache
 {
@@ -20,6 +22,9 @@ namespace Apache
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
+            // Ensure Config.xml is available in AppDataDirectory
+            EnsureConfigFileExists();
+
             // Register DatabaseConfig using factory that reads configuration
             builder.Services.AddSingleton(sp => DatabaseConfig.CreateFromConfiguration());
 
@@ -33,11 +38,11 @@ namespace Apache
             if (DeviceInfo.Platform == DevicePlatform.Android)
             {
                 // Android: Customer only
-                builder.Services.AddSingleton<CustomerPage>();
+                builder.Services.AddSingleton<CustomerAndroidPage>();
                 builder.Services.AddSingleton<CustomerViewModel>();
 
                 // Register route for navigation
-                Routing.RegisterRoute("customer", typeof(CustomerPage));
+                Routing.RegisterRoute("customer", typeof(CustomerAndroidPage));
             }
             else 
             {
@@ -54,6 +59,45 @@ namespace Apache
 #endif
 
             return builder.Build();
+        }
+
+        /// <summary>
+        /// Ensures Config.xml exists in the app data directory by copying it from resources if needed.
+        /// </summary>
+        private static void EnsureConfigFileExists()
+        {
+            try
+            {
+                var configPath = Path.Combine(FileSystem.AppDataDirectory, "Config.xml");
+                
+                // If config doesn't exist, try to create it from the default
+                if (!File.Exists(configPath))
+                {
+                    // Try to load from embedded resource or create default
+                    var resourcePath = "Config.xml";
+                    var assembly = typeof(MauiProgram).Assembly;
+                    var embeddedResourceName = assembly.GetManifestResourceNames()
+                        .FirstOrDefault(rn => rn.EndsWith(resourcePath));
+
+                    if (!string.IsNullOrEmpty(embeddedResourceName))
+                    {
+                        using (var stream = assembly.GetManifestResourceStream(embeddedResourceName))
+                        {
+                            if (stream != null)
+                            {
+                                using (var fileStream = File.Create(configPath))
+                                {
+                                    stream.CopyTo(fileStream);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error ensuring Config.xml exists: {ex.Message}");
+            }
         }
     }
 }

@@ -1,0 +1,122 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Apache.Views.CustomerAndroidPage"
+             Title="Apache - Shop Now">
+
+    <Grid Padding="10" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Header -->
+            <RowDefinition Height="*" />    <!-- Products -->
+            <RowDefinition Height="Auto" /> <!-- Selected product panel -->
+            <RowDefinition Height="Auto" /> <!-- Bottom fixed place order -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Label Text="Apache Store"
+                   FontSize="20"
+                   FontAttributes="Bold"
+                   TextColor="#FF9800"
+                   VerticalOptions="Center" />
+
+            <Button Text="Logout"
+                    Command="{Binding LogoutCommand}"
+                    BackgroundColor="#FF6B6B"
+                    TextColor="White"
+                    FontSize="12"
+                    Padding="10,5"
+                    HorizontalOptions="End"
+                    CornerRadius="5"
+                    Grid.Column="1" />
+        </Grid>
+
+        <!-- Products list -->
+        <CollectionView Grid.Row="1"
+                        x:Name="ProductsCollection"
+                        ItemsSource="{Binding Products}"
+                        SelectionMode="Single"
+                        SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                        SelectionChanged="ProductsCollection_SelectionChanged"
+                        VerticalOptions="FillAndExpand"
+                        HorizontalOptions="FillAndExpand"
+                        Margin="0">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame BorderColor="#FF9800" CornerRadius="8" Padding="10" HasShadow="True" BackgroundColor="White">
+
+                        <Frame.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnFrameTapped" />
+                        </Frame.GestureRecognizers>
+
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="White" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Selected">
+                                    <VisualState.Setters>
+                                        <Setter Property="BackgroundColor" Value="#E3F2FD" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <VerticalStackLayout Spacing="6">
+                            <HorizontalStackLayout Spacing="10">
+                                <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="14" />
+                                <Label Text="{Binding Price, StringFormat='${0:F2}'}" TextColor="#FF9800" FontSize="13" />
+                            </HorizontalStackLayout>
+
+                            <Label Text="{Binding Description}" FontSize="12" LineBreakMode="WordWrap" TextColor="#666" />
+                            <HorizontalStackLayout Spacing="10">
+                                <Label Text="{Binding Stock, StringFormat='Stock: {0}'}" FontSize="12" TextColor="{Binding Stock, Converter={StaticResource StockColorConverter}}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Selected product panel -->
+        <Frame Grid.Row="2" BorderColor="#FF9800" CornerRadius="8" Padding="10" HasShadow="True" IsVisible="{Binding SelectedProduct, Converter={StaticResource StringToBoolConverter}}">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Selected Product" FontAttributes="Bold" />
+                <Label Text="{Binding SelectedProduct.Name, StringFormat='Product: {0}'}" />
+
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <Label Text="Quantity:" VerticalOptions="Center" />
+                    <Stepper Value="{Binding SelectedQuantity}" Minimum="1" Maximum="10" Increment="1" />
+                    <Label Text="{Binding SelectedQuantity}" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Button Text="Add to Cart" Command="{Binding AddToCartCommand}" BackgroundColor="#4CAF50" TextColor="White" CornerRadius="8" HorizontalOptions="EndAndExpand" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+
+        <!-- Bottom fixed place order -->
+        <Grid Grid.Row="3" BackgroundColor="#FFF" Padding="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Text="Place Order"
+                    Command="{Binding PlaceOrderCommand}"
+                    BackgroundColor="#2196F3"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    CornerRadius="8"
+                    HorizontalOptions="FillAndExpand" />
+        </Grid>
+
+    </Grid>
+
+</ContentPage>

@@ -4,6 +4,7 @@ using Apache.Services;
 using Microsoft.Maui.Graphics;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.Globalization;
 
 namespace Apache.ViewModels
 {
@@ -23,6 +24,8 @@ namespace Apache.ViewModels
         private string _newProductName;
         private decimal _newProductPrice;
         private int _newProductStock;
+        private string _newProductPriceText;
+        private string _newProductStockText;
         private string _selectedTab = "Products";
         private OrderStatus _selectedOrderStatus;
         // Serviços de dados e logging
@@ -72,6 +75,8 @@ namespace Apache.ViewModels
                         NewProductName = _selectedProduct.Name;
                         NewProductPrice = _selectedProduct.Price;
                         NewProductStock = _selectedProduct.Stock;
+                        NewProductPriceText = _selectedProduct.Price.ToString(CultureInfo.InvariantCulture);
+                        NewProductStockText = _selectedProduct.Stock.ToString(CultureInfo.InvariantCulture);
                     }
                 }
             }
@@ -114,6 +119,34 @@ namespace Apache.ViewModels
         {
             get => _newProductStock;
             set => SetProperty(ref _newProductStock, value);
+        }
+
+        // String-backed properties to bind to Entry.Text to avoid conversion issues
+        public string NewProductPriceText
+        {
+            get => _newProductPriceText;
+            set
+            {
+                if (SetProperty(ref _newProductPriceText, value))
+                {
+                    // Try parse using invariant culture; ignore parse failure (keep previous numeric value)
+                    if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var dec))
+                        NewProductPrice = dec;
+                }
+            }
+        }
+
+        public string NewProductStockText
+        {
+            get => _newProductStockText;
+            set
+            {
+                if (SetProperty(ref _newProductStockText, value))
+                {
+                    if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+                        NewProductStock = i;
+                }
+            }
         }
 
         public string SelectedTab
@@ -161,6 +194,8 @@ namespace Apache.ViewModels
             _newProductName = string.Empty;
             _newProductPrice = 0;
             _newProductStock = 0;
+            _newProductPriceText = "0";
+            _newProductStockText = "0";
 
             Products = _products;
             Orders = _orders;
@@ -283,6 +318,8 @@ namespace Apache.ViewModels
                 NewProductName = string.Empty;
                 NewProductPrice = 0;
                 NewProductStock = 0;
+                NewProductPriceText = "0";
+                NewProductStockText = "0";
 
                 await App.Current.MainPage.DisplayAlertAsync("Success", "Product added successfully", "OK");
             }
@@ -306,6 +343,11 @@ namespace Apache.ViewModels
                     return;
                 }
 
+                // Apply values entered in the edit fields back to the selected product before saving
+                SelectedProduct.Name = NewProductName;
+                SelectedProduct.Price = NewProductPrice;
+                SelectedProduct.Stock = NewProductStock;
+
                 _repository.UpdateProduct(SelectedProduct);
                 _logger.LogInfo($"Product updated: {SelectedProduct.Name}");
 
@@ -326,6 +368,8 @@ namespace Apache.ViewModels
             NewProductName = p.Name;
             NewProductPrice = p.Price;
             NewProductStock = p.Stock;
+            NewProductPriceText = p.Price.ToString(CultureInfo.InvariantCulture);
+            NewProductStockText = p.Stock.ToString(CultureInfo.InvariantCulture);
         }
 
         private async Task ExecuteDeleteProduct()
