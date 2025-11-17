@@ -4,27 +4,40 @@
              Title="Apache - Admin Dashboard"
              BackgroundColor="#F5F5F5">
 
-    <VerticalStackLayout Padding="10" Spacing="10">
+    <Grid Padding="10" RowSpacing="8" ColumnSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <!-- Admin Header with Logout -->
-        <HorizontalStackLayout Padding="10" Spacing="10" BackgroundColor="#1976D2">
+        <!-- Header -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
             <Label Text="Admin Dashboard"
                    FontSize="20"
                    FontAttributes="Bold"
-                   TextColor="White"
-                   VerticalOptions="Center"/>
+                   TextColor="#1976D2"
+                   VerticalOptions="Center" />
+
             <Button Text="Logout"
                     Command="{Binding LogoutCommand}"
                     BackgroundColor="#FF6B6B"
                     TextColor="White"
                     FontSize="12"
                     Padding="10,5"
-                    HorizontalOptions="EndAndExpand"
-                    CornerRadius="5"/>
-        </HorizontalStackLayout>
+                    HorizontalOptions="End"
+                    CornerRadius="5"
+                    Grid.Column="1" />
+        </Grid>
 
-        <!-- Tab Selection Buttons -->
-        <HorizontalStackLayout Padding="0" Spacing="0" BackgroundColor="#E0E0E0">
+        <!-- Tabs -->
+        <HorizontalStackLayout Grid.Row="1" Padding="0" Spacing="0" BackgroundColor="#E0E0E0">
             <Button Text="Products"
                     Command="{Binding SelectTabCommand}"
                     CommandParameter="Products"
@@ -57,158 +70,259 @@
                     Padding="10"/>
         </HorizontalStackLayout>
 
-        <!-- Content Container -->
-        <VerticalStackLayout Padding="10" Spacing="10">
-            
-            <!-- Products Tab -->
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Products}">
-                
-                <!-- Add New Product Section -->
-                <Frame BorderColor="#4CAF50" CornerRadius="8" Padding="10">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="Add New Product"
-                               FontAttributes="Bold"
-                               FontSize="14"/>
+        <!-- Content area -->
+        <Grid Grid.Row="2" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="350" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Items Lists -->
+            <VerticalStackLayout Grid.Column="0" Spacing="10" Padding="0">
+                    <!-- Products Tab -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Products}">
+                        <Label Text="Products" FontAttributes="Bold" FontSize="16"/>
+                        <CollectionView x:Name="ProductsCollection"
+                                        ItemsSource="{Binding Products}"
+                                        SelectionMode="Single"
+                                        SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                                        HeightRequest="500">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BorderColor="#1976D2" CornerRadius="8" Padding="10" HasShadow="True">
+
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="White" />
+                                                        <Setter Property="Opacity" Value="1" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="#E3F2FD" />
+                                                        <Setter Property="Opacity" Value="1" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+
+                                        <VerticalStackLayout Spacing="4">
+                                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="14"/>
+                                            <Label Text="{Binding Price, StringFormat='${0:F2}'}" TextColor="#FF9800" FontSize="13"/>
+                                            <Label Text="{Binding Stock, StringFormat='Stock: {0}'}" FontSize="11" TextColor="#666"/>
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+
+                    <!-- Orders Tab -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Orders}">
+                        <Label Text="Orders" FontAttributes="Bold" FontSize="16"/>
+                        <CollectionView x:Name="OrdersCollection"
+                                        ItemsSource="{Binding Orders}" SelectionMode="Single" SelectedItem="{Binding SelectedOrder, Mode=TwoWay}" HeightRequest="500">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BorderColor="#FF9800" CornerRadius="8" Padding="10" HasShadow="True">
+
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="White" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="#FFF3E0" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+
+                                        <VerticalStackLayout Spacing="5">
+                                            <HorizontalStackLayout Spacing="10">
+                                                <Label Text="{Binding Id, StringFormat='Order #{0}'}" FontAttributes="Bold" FontSize="13"/>
+                                                <Label Text="{Binding Status}" TextColor="#4CAF50" FontAttributes="Bold" FontSize="12"/>
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding GetTotal, StringFormat='Total: ${0:F2}'}" TextColor="#FF9800" FontSize="12"/>
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+
+                    <!-- Customers Tab -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Customers}">
+                        <Label Text="Customers" FontAttributes="Bold" FontSize="16"/>
+                        <CollectionView x:Name="CustomersCollection" ItemsSource="{Binding Customers}" SelectionMode="Single" SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}" HeightRequest="500">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Frame BorderColor="#9C27B0" CornerRadius="8" Padding="10" HasShadow="True">
+
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="White" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="#F3E5F5" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="13"/>
+                                            <Label Text="{Binding Email}" FontSize="11" TextColor="#666" />
+                                            <Label Text="{Binding Address}" FontSize="10" TextColor="#999" />
+                                        </VerticalStackLayout>
+                                    </Frame>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+                </VerticalStackLayout>
+
+            <!-- Right: Management Options -->
+            <ScrollView Grid.Column="1">
+                <StackLayout Spacing="12" Padding="10">
+                    <!-- Products Tab Options -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Products}">
+                        <Label Text="Product Management" FontAttributes="Bold" FontSize="14" TextColor="#1976D2"/>
                         
-                        <Entry Placeholder="Product Name"
-                               Text="{Binding NewProductName}"/>
+                        <Frame BorderColor="#4CAF50" CornerRadius="8" Padding="10" HasShadow="True">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Create/Edit Product" FontAttributes="Bold" FontSize="12"/>
+
+                                <Entry Placeholder="Product Name"
+                                       Text="{Binding NewProductName}"
+                                       FontSize="12"/>
+
+                                <Entry Placeholder="Price"
+                                       Text="{Binding NewProductPrice}"
+                                       Keyboard="Numeric"
+                                       FontSize="12"/>
+
+                                <Entry Placeholder="Stock Qty"
+                                       Text="{Binding NewProductStock}"
+                                       Keyboard="Numeric"
+                                       FontSize="12"/>
+
+                                <Button Text="Create Product"
+                                        Command="{Binding AddProductCommand}"
+                                        BackgroundColor="#4CAF50"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+
+                                <Button Text="Update Selected"
+                                        Command="{Binding UpdateProductCommand}"
+                                        BackgroundColor="#FF9800"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+
+                                <Button Text="Delete Selected"
+                                        Command="{Binding DeleteProductCommand}"
+                                        BackgroundColor="#E53935"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+                            </VerticalStackLayout>
+                        </Frame>
+                    </StackLayout>
+
+                    <!-- Orders Tab Options -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Orders}">
+                        <Label Text="Order Management" FontAttributes="Bold" FontSize="14" TextColor="#FF9800"/>
                         
-                        <Entry Placeholder="Price"
-                               Text="{Binding NewProductPrice}"
-                               Keyboard="Numeric"/>
+                        <Frame BorderColor="#FF9800" CornerRadius="8" Padding="10" HasShadow="True">
+                            <VerticalStackLayout Spacing="8">
+                                <Button Text="View Details"
+                                        Command="{Binding ViewOrderDetailsCommand}"
+                                        CommandParameter="{Binding SelectedOrder}"
+                                        BackgroundColor="#1976D2"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+
+                                <Button Text="Set Shipped"
+                                        Command="{Binding SetOrderStatusCommand}"
+                                        CommandParameter="{Binding SelectedOrder}"
+                                        BackgroundColor="#4CAF50"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+
+                                <Button Text="Delete Order"
+                                        Command="{Binding DeleteOrderCommand}"
+                                        CommandParameter="{Binding SelectedOrder}"
+                                        BackgroundColor="#E53935"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+                            </VerticalStackLayout>
+                        </Frame>
+                    </StackLayout>
+
+                    <!-- Customers Tab Options -->
+                    <StackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Customers}">
+                        <Label Text="Customer Management" FontAttributes="Bold" FontSize="14" TextColor="#9C27B0"/>
                         
-                        <Entry Placeholder="Stock Quantity"
-                               Text="{Binding NewProductStock}"
-                               Keyboard="Numeric"/>
-                        
-                        <Button Text="Add Product"
-                                Command="{Binding AddProductCommand}"
-                                BackgroundColor="#4CAF50"
-                                TextColor="White"
-                                CornerRadius="8"/>
-                    </VerticalStackLayout>
-                </Frame>
+                        <Frame BorderColor="#9C27B0" CornerRadius="8" Padding="10" HasShadow="True">
+                            <VerticalStackLayout Spacing="8">
+                                <Button Text="Add Customer"
+                                        Command="{Binding CreateCustomerCommand}"
+                                        BackgroundColor="#4CAF50"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
 
-                <!-- Products List -->
-                <Label Text="{Binding Products.Count, StringFormat='Total Products: {0}'}"
-                       FontAttributes="Bold"
-                       FontSize="12"/>
+                                <Button Text="Edit Selected"
+                                        Command="{Binding OpenEditCustomerPageCommand}"
+                                        CommandParameter="{Binding SelectedCustomer}"
+                                        BackgroundColor="#FFB300"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
 
-                <CollectionView ItemsSource="{Binding Products}">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Frame BorderColor="#1976D2" CornerRadius="8" Padding="10">
-                                <VerticalStackLayout Spacing="5">
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Text="{Binding Name}"
-                                               FontAttributes="Bold"
-                                               FontSize="12"/>
-                                        <Label Text="{Binding Price, StringFormat='${0:F2}'}"
-                                               FontAttributes="Bold"
-                                               TextColor="#FF9800"/>
-                                    </HorizontalStackLayout>
-                                    <Label Text="{Binding Stock, StringFormat='Stock: {0}'}"
-                                           FontSize="11"
-                                           TextColor="{Binding Stock, Converter={StaticResource StockColorConverter}}"/>
-                                </VerticalStackLayout>
-                            </Frame>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                                <Button Text="Delete Selected"
+                                        Command="{Binding DeleteCustomerCommand}"
+                                        CommandParameter="{Binding SelectedCustomer}"
+                                        BackgroundColor="#E53935"
+                                        TextColor="White"
+                                        CornerRadius="6"
+                                        FontSize="12"/>
+                            </VerticalStackLayout>
+                        </Frame>
+                    </StackLayout>
+                </StackLayout>
+            </ScrollView>
+        </Grid>
 
-            </VerticalStackLayout>
+        <!-- Footer: Loading and Refresh -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Text="Refresh Data" Command="{Binding RefreshCommand}" BackgroundColor="#1976D2" TextColor="White" CornerRadius="8" />
+            <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" Color="#1976D2" Grid.Column="1" VerticalOptions="Center" />
+        </Grid>
 
-            <!-- Orders Tab -->
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Orders}">
-                <Label Text="{Binding Orders.Count, StringFormat='Total Orders: {0}'}"
-                       FontAttributes="Bold"
-                       FontSize="12"/>
-
-                <CollectionView ItemsSource="{Binding Orders}">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Frame BorderColor="#FF9800" CornerRadius="8" Padding="10">
-                                <VerticalStackLayout Spacing="5">
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Text="{Binding Id, StringFormat='Order #{0}'}"
-                                               FontAttributes="Bold"
-                                               FontSize="12"/>
-                                        <Label Text="{Binding Status}"
-                                               TextColor="#4CAF50"
-                                               FontAttributes="Bold"
-                                               FontSize="11"/>
-                                    </HorizontalStackLayout>
-                                    <Label Text="{Binding GetTotal, StringFormat='Total: ${0:F2}'}"
-                                           FontSize="11"
-                                           TextColor="#FF9800"/>
-                                    <Button Text="View Details"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ViewOrderDetailsCommand}"
-                                            CommandParameter="{Binding .}"
-                                            BackgroundColor="#1976D2"
-                                            TextColor="White"
-                                            FontSize="11"
-                                            Padding="5,3"
-                                            CornerRadius="3"/>
-                                </VerticalStackLayout>
-                            </Frame>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </VerticalStackLayout>
-
-            <!-- Customers Tab -->
-            <VerticalStackLayout Spacing="10" IsVisible="{Binding SelectedTab, Converter={StaticResource TabVisibilityConverter}, ConverterParameter=Customers}">
-                <Label Text="{Binding Customers.Count, StringFormat='Total Customers: {0}'}"
-                       FontAttributes="Bold"
-                       FontSize="12"/>
-
-                <CollectionView ItemsSource="{Binding Customers}">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Frame BorderColor="#9C27B0" CornerRadius="8" Padding="10">
-                                <VerticalStackLayout Spacing="5">
-                                    <Label Text="{Binding Name}"
-                                           FontAttributes="Bold"
-                                           FontSize="12"/>
-                                    <Label Text="{Binding Email}"
-                                           FontSize="11"
-                                           TextColor="#666"/>
-                                    <Label Text="{Binding Address}"
-                                           FontSize="10"
-                                           TextColor="#999"/>
-                                </VerticalStackLayout>
-                            </Frame>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </VerticalStackLayout>
-
-        </VerticalStackLayout>
-
-        <!-- Loading Indicator -->
-        <ActivityIndicator IsRunning="{Binding IsLoading}"
-                          IsVisible="{Binding IsLoading}"
-                          Color="#1976D2"
-                          Margin="10"/>
-
-        <!-- Refresh Button -->
-        <Button Text="Refresh Data"
-                Command="{Binding RefreshCommand}"
-                BackgroundColor="#1976D2"
-                TextColor="White"
-                FontAttributes="Bold"
-                CornerRadius="8"
-                Margin="10,10"/>
-
-    </VerticalStackLayout>
+    </Grid>
 
 </ContentPage>

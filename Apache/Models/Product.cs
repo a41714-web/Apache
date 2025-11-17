@@ -2,13 +2,25 @@ using System;
 
 namespace Apache.Models
 {
-    /// <summary>
-    /// Represents a product in the Apache marketplace.
-    /// Demonstrates OOP encapsulation and data validation.
+    /// <summary> 
+    /// Interface definindo um produto
     /// </summary>
-    public class Product
+    public interface IProduct
     {
-        private string _name;
+        int Id { get; set; }
+        string Name { get; set; }
+        string Description { get; set; }
+        decimal Price { get; set; }
+        int Stock { get; set; }
+        string Category { get; set; }
+        string ImageUrl { get; set; }
+    }
+    /// <summary>
+    /// Classe que representa um produto
+    /// </summary>
+    public class Product : IProduct
+    {
+        private string _name = string.Empty;
         private decimal _price;
         private int _stock;
 
@@ -25,8 +37,7 @@ namespace Apache.Models
             }
         }
 
-        public string Description { get; set; }
-
+        public string Description { get; set; } = string.Empty;
         public decimal Price
         {
             get => _price;
@@ -49,17 +60,16 @@ namespace Apache.Models
             }
         }
 
-        public string Category { get; set; }
-        public string ImageUrl { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
 
         public Product()
         {
-            // Auto-ID generation removed, as IDs are managed by the database
             Stock = 0;
         }
 
         /// <summary>
-        /// Reduces stock when a purchase is made.
+        /// Atualizar stock quando uma venda é realizada.
         /// </summary>
         public void ReduceStock(int quantity)
         {
@@ -73,7 +83,7 @@ namespace Apache.Models
         }
 
         /// <summary>
-        /// Increases stock when new inventory arrives.
+        /// Atualizar stock quando novos produtos chegam.
         /// </summary>
         public void AddStock(int quantity)
         {

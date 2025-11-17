@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace Apache.Services
 {
     /// <summary>
-    /// Service for handling application logging and execution logs.
-    /// Implements singleton pattern for centralized logging.
+    /// Serviço de logging.
     /// </summary>
     public class LoggingService
     {

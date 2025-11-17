@@ -187,16 +187,7 @@ namespace Apache.ViewModels
 
                 IsLoading = true;
 
-                // Reduce stock for each item
-                foreach (var item in _currentOrder.Items)
-                {
-                    var product = _repository.GetProductById(item.ProductId);
-                    if (product != null)
-                    {
-                        product.ReduceStock(item.Quantity);
-                    }
-                }
-
+                // Repository will update stock and persist order inside a transaction
                 _repository.AddOrder(_currentOrder);
                 _logger.LogInfo($"Order placed successfully: Order ID {_currentOrder.Id}");
 

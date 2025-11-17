@@ -12,7 +12,7 @@ namespace Apache.Data
     /// </summary>
     public class DataRepository
     {
-        private static DataRepository _instance;
+        private static DataRepository? _instance;
         private static readonly object _instanceLock = new object();
         private readonly LoggingService _logger;
         private readonly string _connectionString;
@@ -38,10 +38,10 @@ namespace Apache.Data
         private DataRepository()
         {
             _logger = LoggingService.Instance;
-            _connectionString = DatabaseConfig.Instance.ConnectionString;
+            _connectionString = DatabaseConfig.CreateFromConfiguration().ConnectionString;
         }
 
-        // Product Methods
+        // Métodos para Productos
         public IReadOnlyList<Product> GetAllProducts()
         {
             var products = new List<Product>();
@@ -190,7 +190,32 @@ namespace Apache.Data
             }
         }
 
-        // Customer Methods
+        public void DeleteProduct(int productId)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = "DELETE FROM Products WHERE Id = @Id;";
+                        command.Parameters.AddWithValue("@Id", productId);
+                        int rows = command.ExecuteNonQuery();
+                        if (rows == 0)
+                            throw new InvalidOperationException($"Product {productId} not found");
+                    }
+                }
+                _logger.LogInfo($"Product {productId} deleted");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting product {productId}", ex);
+                throw;
+            }
+        }
+
+        // Métodos para Clientes
         public IReadOnlyList<Customer> GetAllCustomers()
         {
             var customers = new List<Customer>();
@@ -312,7 +337,119 @@ namespace Apache.Data
             }
         }
 
-        // Order Methods
+        public void UpdateCustomer(Customer customer)
+        {
+            try
+            {
+                if (customer == null)
+                    throw new ArgumentNullException(nameof(customer));
+
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                            UPDATE Customers
+                            SET Name = @Name, Email = @Email, Password = @Password, Address = @Address, PhoneNumber = @PhoneNumber, IsActive = @IsActive
+                            WHERE Id = @Id;";
+                        command.Parameters.AddWithValue("@Id", customer.Id);
+                        command.Parameters.AddWithValue("@Name", customer.Name ?? "");
+                        command.Parameters.AddWithValue("@Email", customer.Email);
+                        command.Parameters.AddWithValue("@Password", customer.Password);
+                        command.Parameters.AddWithValue("@Address", customer.Address ?? "");
+                        command.Parameters.AddWithValue("@PhoneNumber", customer.PhoneNumber ?? "");
+                        command.Parameters.AddWithValue("@IsActive", customer.IsActive);
+
+                        int rows = command.ExecuteNonQuery();
+                        if (rows == 0)
+                            throw new InvalidOperationException($"Customer {customer.Id} not found");
+                    }
+                }
+                _logger.LogInfo($"Customer updated: {customer.Id}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error updating customer", ex);
+                throw;
+            }
+        }
+
+        public void DeleteCustomer(int customerId)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            // delete order items and orders belonging to customer
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.Transaction = transaction;
+                                cmd.CommandText = "SELECT Id FROM Orders WHERE CustomerId = @CustomerId;";
+                                cmd.Parameters.AddWithValue("@CustomerId", customerId);
+                                var orderIds = new List<int>();
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    while (reader.Read())
+                                    {
+                                        orderIds.Add((int)reader["Id"]);
+                                    }
+                                }
+
+                                foreach (var oid in orderIds)
+                                {
+                                    using (var delItems = connection.CreateCommand())
+                                    {
+                                        delItems.Transaction = transaction;
+                                        delItems.CommandText = "DELETE FROM OrderItems WHERE OrderId = @OrderId;";
+                                        delItems.Parameters.AddWithValue("@OrderId", oid);
+                                        delItems.ExecuteNonQuery();
+                                    }
+                                }
+
+                                using (var delOrders = connection.CreateCommand())
+                                {
+                                    delOrders.Transaction = transaction;
+                                    delOrders.CommandText = "DELETE FROM Orders WHERE CustomerId = @CustomerId;";
+                                    delOrders.Parameters.AddWithValue("@CustomerId", customerId);
+                                    delOrders.ExecuteNonQuery();
+                                }
+                            }
+
+                            using (var cmdDel = connection.CreateCommand())
+                            {
+                                cmdDel.Transaction = transaction;
+                                cmdDel.CommandText = "DELETE FROM Customers WHERE Id = @Id;";
+                                cmdDel.Parameters.AddWithValue("@Id", customerId);
+                                int rows = cmdDel.ExecuteNonQuery();
+                                if (rows == 0)
+                                    throw new InvalidOperationException($"Customer {customerId} not found");
+                            }
+
+                            transaction.Commit();
+                        }
+                        catch
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                    }
+                }
+                _logger.LogInfo($"Customer {customerId} deleted");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting customer {customerId}", ex);
+                throw;
+            }
+        }
+
+        // Métodos para Ordens
         public IReadOnlyList<Order> GetAllOrders()
         {
             var orders = new List<Order>();
@@ -419,9 +556,26 @@ namespace Apache.Data
                                 orderId = Convert.ToInt32(command.ExecuteScalar());
                             }
 
-                            // Insert order items
+                            // Insert order items and update product stock atomically
                             foreach (var item in order.Items)
                             {
+                                // decrement product stock ensuring there is enough stock
+                                using (var stockCmd = connection.CreateCommand())
+                                {
+                                    stockCmd.Transaction = transaction;
+                                    stockCmd.CommandText = @"
+                                        UPDATE Products
+                                        SET Stock = Stock - @Quantity
+                                        WHERE Id = @ProductId AND Stock >= @Quantity;";
+                                    stockCmd.Parameters.AddWithValue("@Quantity", item.Quantity);
+                                    stockCmd.Parameters.AddWithValue("@ProductId", item.ProductId);
+                                    int rows = stockCmd.ExecuteNonQuery();
+                                    if (rows == 0)
+                                    {
+                                        throw new InvalidOperationException($"Insufficient stock for product {item.ProductId}");
+                                    }
+                                }
+
                                 using (var command = connection.CreateCommand())
                                 {
                                     command.Transaction = transaction;
@@ -438,11 +592,16 @@ namespace Apache.Data
                             }
 
                             transaction.Commit();
+
+                            // set the generated id back on the order instance so callers see it
+                            order.Id = orderId;
+
                             _logger.LogInfo($"Order created: {orderId} for customer {order.CustomerId}");
                         }
                         catch (Exception ex)
                         {
                             transaction.Rollback();
+                            _logger.LogError("Error adding order inside transaction", ex);
                             throw;
                         }
                     }
@@ -478,6 +637,53 @@ namespace Apache.Data
             catch (Exception ex)
             {
                 _logger.LogError("Error updating order status", ex);
+                throw;
+            }
+        }
+
+        public void DeleteOrder(int orderId)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.Transaction = transaction;
+                                cmd.CommandText = "DELETE FROM OrderItems WHERE OrderId = @OrderId;";
+                                cmd.Parameters.AddWithValue("@OrderId", orderId);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            using (var cmd = connection.CreateCommand())
+                            {
+                                cmd.Transaction = transaction;
+                                cmd.CommandText = "DELETE FROM Orders WHERE Id = @Id;";
+                                cmd.Parameters.AddWithValue("@Id", orderId);
+                                int rows = cmd.ExecuteNonQuery();
+                                if (rows == 0)
+                                    throw new InvalidOperationException($"Order {orderId} not found");
+                            }
+
+                            transaction.Commit();
+                        }
+                        catch
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                    }
+                }
+                _logger.LogInfo($"Order {orderId} deleted");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error deleting order {orderId}", ex);
                 throw;
             }
         }

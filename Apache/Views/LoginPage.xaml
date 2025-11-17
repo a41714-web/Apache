@@ -1,8 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:converters="clr-namespace:Apache.Converters"
              x:Class="Apache.Views.LoginPage"
              Title="Apache Login"
              BackgroundColor="#F0F0F0">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:BoolToRoleConverter x:Key="BoolToRoleConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <VerticalStackLayout Padding="20" Spacing="15" VerticalOptions="Center">
         
@@ -20,8 +28,7 @@
 
         <!-- Mode Indicator -->
         <Frame BackgroundColor="#E8F5E9" CornerRadius="8" Padding="10">
-            <Label x:Name="ModeLabel" 
-                   Text="Customer Login Mode"
+            <Label Text="{Binding IsCustomerMode, Converter={StaticResource BoolToRoleConverter}}"
                    HorizontalTextAlignment="Center"
                    TextColor="#2E7D32"
                    FontAttributes="Bold"/>
@@ -68,28 +75,14 @@
                           Color="#FF9800"
                           Margin="0,20,0,0"/>
 
-        <!-- Toggle Mode Button -->
+        <!-- Toggle Mode Button (only visible if allowed) -->
         <Button Text="Switch to Admin Login"
                 Command="{Binding ToggleModeCommand}"
                 BackgroundColor="Transparent"
                 TextColor="#FF9800"
                 FontAttributes="Bold"
-                Padding="10"/>
-
-        <!-- Demo Credentials -->
-        <Frame BackgroundColor="#FFF3E0" CornerRadius="8" Padding="10" Margin="0,20,0,0">
-            <VerticalStackLayout Spacing="5">
-                <Label Text="Demo Credentials"
-                       FontAttributes="Bold"
-                       TextColor="#E65100"/>
-                <Label Text="Customer: john@example.com / password123"
-                       FontSize="12"
-                       TextColor="#333"/>
-                <Label Text="Admin: admin@apache.com / adminpass123"
-                       FontSize="12"
-                       TextColor="#333"/>
-            </VerticalStackLayout>
-        </Frame>
+                Padding="10"
+                IsVisible="{Binding CanToggleMode}"/>
 
     </VerticalStackLayout>
 

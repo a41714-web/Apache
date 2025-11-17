@@ -12,8 +12,10 @@
     <Shell.Resources>
         <ResourceDictionary>
             <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
-            <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
             <converters:StockColorConverter x:Key="StockColorConverter"/>
+            <converters:SelectedTabConverter x:Key="SelectedTabConverter"/>
+            <converters:TabVisibilityConverter x:Key="TabVisibilityConverter"/>
+            <converters:InvertBoolConverter x:Key="InvertBoolConverter"/>
             <converters:MultiBoolConverter x:Key="MultiBoolConverter"/>
         </ResourceDictionary>
     </Shell.Resources>
@@ -23,17 +25,5 @@
         Title="Login"
         ContentTemplate="{DataTemplate views:LoginPage}"
         Route="login" />
-
-    <!-- Route to Customer page -->
-    <ShellContent
-        Title="Customer"
-        ContentTemplate="{DataTemplate views:CustomerPage}"
-        Route="customer" />
-
-    <!-- Route to Admin page -->
-    <ShellContent
-        Title="Admin"
-        ContentTemplate="{DataTemplate views:AdminPage}"
-        Route="admin" />
 
 </Shell>

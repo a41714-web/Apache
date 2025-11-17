@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using Apache.Views;
+using Apache.ViewModels;
 using Apache.Data;
+using Microsoft.Maui.Devices;
+using Microsoft.Maui.Controls;
 
 namespace Apache
 {
@@ -17,16 +20,37 @@ namespace Apache
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
-            // Initialize database
-            _ = DatabaseConfig.Instance;
+            // Register DatabaseConfig using factory that reads configuration
+            builder.Services.AddSingleton(sp => DatabaseConfig.CreateFromConfiguration());
 
-            // Register Views and ViewModels
+            // Register ViewModels
+            builder.Services.AddSingleton<LoginViewModel>();
+
+            // Register Login view and ViewModel always
             builder.Services.AddSingleton<LoginPage>();
-            builder.Services.AddSingleton<CustomerPage>();
-            builder.Services.AddSingleton<AdminPage>();
+
+            // Register platform-specific pages and ViewModels
+            if (DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                // Android: Customer only
+                builder.Services.AddSingleton<CustomerPage>();
+                builder.Services.AddSingleton<CustomerViewModel>();
+
+                // Register route for navigation
+                Routing.RegisterRoute("customer", typeof(CustomerPage));
+            }
+            else 
+            {
+                // Desktop (Windows/macOS): Admin only
+                builder.Services.AddSingleton<AdminPage>();
+                builder.Services.AddSingleton<AdminViewModel>();
+
+                // Register route for navigation
+                Routing.RegisterRoute("admin", typeof(AdminPage));
+            }
 
 #if DEBUG
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

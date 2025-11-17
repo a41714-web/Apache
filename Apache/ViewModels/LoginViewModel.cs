@@ -2,12 +2,15 @@ using Apache.Data;
 using Apache.Models;
 using Apache.Services;
 using System.Windows.Input;
+using Microsoft.Maui.Devices;
+using Microsoft.Maui.Controls;
 
 namespace Apache.ViewModels
 {
     /// <summary>
     /// ViewModel for authentication (login) screen.
     /// Handles both customer and admin login scenarios.
+    /// Automatically sets the login mode based on the platform.
     /// </summary>
     public class LoginViewModel : BaseViewModel
     {
@@ -15,6 +18,7 @@ namespace Apache.ViewModels
         private string _password;
         private string _errorMessage;
         private bool _isCustomerMode = true;
+        private bool _canToggleMode = false;
         private readonly DataRepository _repository;
         private readonly LoggingService _logger;
 
@@ -42,6 +46,12 @@ namespace Apache.ViewModels
             set => SetProperty(ref _isCustomerMode, value);
         }
 
+        public bool CanToggleMode
+        {
+            get => _canToggleMode;
+            set => SetProperty(ref _canToggleMode, value);
+        }
+
         public ICommand LoginCommand { get; }
         public ICommand ToggleModeCommand { get; }
 
@@ -49,9 +59,32 @@ namespace Apache.ViewModels
         {
             _repository = DataRepository.Instance;
             _logger = LoggingService.Instance;
-            
+
+            // Detect platform and set login mode accordingly
+            DetectPlatformAndSetMode();
+
             LoginCommand = new RelayCommand(async () => await ExecuteLogin());
             ToggleModeCommand = new RelayCommand(() => ToggleLoginMode());
+        }
+
+        /// <summary>
+        /// Detects the current platform and sets the login mode accordingly.
+        /// Android = Customer Mode, Desktop (Windows/macOS) = Admin Mode
+        /// </summary>
+        private void DetectPlatformAndSetMode()
+        {
+            if (DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                IsCustomerMode = true;
+                CanToggleMode = false;
+                _logger.LogDebug("Platform detected: Android - Customer Mode enabled, toggle disabled");
+            }
+            else
+            {
+                IsCustomerMode = false;
+                CanToggleMode = false;
+                _logger.LogDebug("Platform detected: Desktop - Admin Mode enabled, toggle disabled");
+            }
         }
 
         /// <summary>
@@ -79,7 +112,8 @@ namespace Apache.ViewModels
                     if (customer != null)
                     {
                         _logger.LogInfo($"Customer login successful: {Email}");
-                        await Shell.Current.GoToAsync($"///customer?id={customer.Id}");
+                        // Use registered route name (no leading slashes) for registered routes
+                        await Shell.Current.GoToAsync($"customer?id={customer.Id}");
                     }
                     else
                     {
@@ -92,7 +126,7 @@ namespace Apache.ViewModels
                     if (admin != null)
                     {
                         _logger.LogInfo($"Admin login successful: {Email}");
-                        await Shell.Current.GoToAsync($"///admin?id={admin.Id}");
+                        await Shell.Current.GoToAsync($"admin?id={admin.Id}");
                     }
                     else
                     {
@@ -113,9 +147,16 @@ namespace Apache.ViewModels
 
         /// <summary>
         /// Toggles between customer and admin login modes.
+        /// NOTE: This is disabled on platform-specific builds where the mode is fixed.
         /// </summary>
         private void ToggleLoginMode()
         {
+            if (!CanToggleMode)
+            {
+                _logger.LogDebug("Login mode toggle is disabled for this platform");
+                return;
+            }
+
             IsCustomerMode = !IsCustomerMode;
             Email = string.Empty;
             Password = string.Empty;

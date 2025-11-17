@@ -1,42 +1,48 @@
 using Apache.Services;
 using MySql.Data.MySqlClient;
+using System.Configuration;
+using System.Xml.Linq;
+using System.IO;
+using System;
+using System.Linq;
 
 namespace Apache.Data
 {
     /// <summary>
-    /// Handles MySQL database connection and initialization.
+    /// Connecção e configuração do banco de dados MySQL.
     /// </summary>
     public class DatabaseConfig
     {
-        private static DatabaseConfig _instance;
-        private static readonly object _instanceLock = new object();
         private readonly string _connectionString;
+        private readonly string _noDatabaseConnectionString;
         private readonly LoggingService _logger;
 
-        public static DatabaseConfig Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    lock (_instanceLock)
-                    {
-                        if (_instance == null)
-                        {
-                            _instance = new DatabaseConfig();
-                        }
-                    }
-                }
-                return _instance;
-            }
-        }
-
-        private DatabaseConfig()
+        // Construtor que aceita uma string de conexão.
+        public DatabaseConfig(string connectionString, string noDatabaseConnectionString = null)
         {
             _logger = LoggingService.Instance;
-            // Connection string for local MySQL server
-            _connectionString = "Server=localhost;Database=apache_db;Uid=root;Pwd=root;";
+
+            _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+            _noDatabaseConnectionString = !string.IsNullOrWhiteSpace(noDatabaseConnectionString)
+                ? noDatabaseConnectionString
+                : DeriveNoDatabaseConnectionString(_connectionString);
+
             InitializeDatabase();
+        }
+
+        /// <summary>
+        /// Fábrica para criar um DatabaseConfig usando arquivos de configuração (ConfigurationManager ou fallback Config.xml).
+        /// Fábrica - É um padrão de projeto criacional que fornece uma interface para a criação de objetos em uma superclasse, 
+        /// mas permite que as subclasses alterem o tipo de objetos que serão criados.
+        /// </summary>
+        public static DatabaseConfig CreateFromConfiguration()
+        {
+            var connectionString = GetConnectionString("Database")
+                ?? throw new InvalidOperationException("Connection string 'Database' not found. Please add it to your configuration (Config.xml or app config).");
+
+            var noDb = GetConnectionString("NoDatabase");
+
+            return new DatabaseConfig(connectionString, noDb);
         }
 
         public string ConnectionString => _connectionString;
@@ -61,12 +67,11 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Creates the database if it doesn't exist.
+        /// Criar o banco de dados se ele não existir.
         /// </summary>
         private void CreateDatabaseIfNotExists()
         {
-            string connectionStringWithoutDb = "Server=localhost;Uid=root;Pwd=root;";
-            using (var connection = new MySqlConnection(connectionStringWithoutDb))
+            using (var connection = new MySqlConnection(_noDatabaseConnectionString))
             {
                 try
                 {
@@ -87,7 +92,7 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Creates required tables if they don't exist.
+        /// Criar tabelas necessárias se elas não existirem.
         /// </summary>
         private void CreateTablesIfNotExist()
         {
@@ -175,7 +180,7 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Seeds initial data if tables are empty.
+        /// Adiciona dados iniciais se as tabelas estiverem vazias.
         /// </summary>
         private void SeedInitialData()
         {
@@ -229,7 +234,7 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Seeds sample customers.
+        /// Exemplo de clientes iniciais.
         /// </summary>
         private void SeedCustomers(MySqlConnection connection)
         {
@@ -246,7 +251,7 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Seeds sample admin.
+        /// Exemplo de administrador inicial.
         /// </summary>
         private void SeedAdmins(MySqlConnection connection)
         {
@@ -255,7 +260,7 @@ namespace Apache.Data
         }
 
         /// <summary>
-        /// Helper method to execute SQL commands.
+        /// Método auxiliar para executar comandos SQL.
         /// </summary>
         private void ExecuteCommand(MySqlConnection connection, string commandText)
         {
@@ -264,6 +269,63 @@ namespace Apache.Data
                 command.CommandText = commandText;
                 command.ExecuteNonQuery();
             }
+        }
+
+        private static string GetConnectionString(string name)
+        {
+            try
+            {
+                var fromConfigManager = ConfigurationManager.ConnectionStrings[name]?.ConnectionString;
+                if (!string.IsNullOrWhiteSpace(fromConfigManager))
+                    return fromConfigManager;
+
+                // Tentar encontrar um Config.xml na pasta do aplicativo ou em pastas pai
+                var baseDir = AppContext.BaseDirectory;
+                var dir = new DirectoryInfo(baseDir);
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "Config.xml");
+                    if (File.Exists(candidate))
+                    {
+                        try
+                        {
+                            var doc = XDocument.Load(candidate);
+                            var add = doc.Root?
+                                        .Element("connectionStrings")?
+                                        .Elements("add")
+                                        .FirstOrDefault(e => (string)e.Attribute("name") == name);
+                            var cs = (string?)add?.Attribute("connectionString");
+                            if (!string.IsNullOrWhiteSpace(cs))
+                                return cs;
+                        }
+                        catch
+                        {
+                            // ignore malformed xml and keep searching
+                        }
+                    }
+                    dir = dir.Parent;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string DeriveNoDatabaseConnectionString(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                return connectionString;
+
+            var parts = connectionString.Split(';')
+                .Select(p => p.Trim())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Where(p => !p.StartsWith("Database=", StringComparison.OrdinalIgnoreCase) && !p.StartsWith("Initial Catalog=", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            return string.Join(";", parts) + (parts.Count > 0 ? ";" : string.Empty);
         }
     }
 }

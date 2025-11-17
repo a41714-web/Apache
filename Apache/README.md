@@ -1,26 +1,23 @@
 # Apache - MAUI E-Commerce Application with MySQL Database
 
 ## ?? Overview
-Apache is a .NET MAUI application that simulates an Amazon-like e-commerce platform with separate user interfaces for customers and administrators. **Now with persistent MySQL database integration!**
+Apache is a .NET MAUI application that simulates an Amazon-like e-commerce platform with separate user interfaces for customers and administrators. **Now with persistent MySQL database integration and platform-specific builds!**
 
 The application demonstrates key OOP concepts, exception handling, logging, MVVM architecture, and database integration suitable for 2nd-year computer science students.
 
-## ? What's New - MySQL Integration
+## ? What's New - Platform-Specific Builds
 
-**Version 2.0** introduces professional MySQL database backend:
-- ? **Persistent Data Storage** - Data survives app restarts
-- ? **MySQL Backend** - Professional database (Community Edition free)
-- ? **Auto-Initialization** - Database and tables created automatically
-- ? **Sample Data** - 5 products, 2 customers, 1 admin pre-populated
-- ? **Secure Queries** - SQL injection protection via parameterized queries
-- ? **Transaction Support** - ACID-compliant order processing
+**Version 3.0** introduces platform-specific builds:
+- ?? **Android Build**: Customer interface only
+- ??? **Windows Build**: Admin interface only
+- ?? **Automatic Mode Detection**: Platform automatically selects Customer or Admin mode on login
+- ?? **Login Mode Lock**: Users cannot switch between modes on production builds
 
-### Quick Setup (30 seconds)
-1. Install MySQL Server: https://dev.mysql.com/downloads/mysql/
-2. Run Apache app
-3. **Done!** Database auto-initializes
-
-For detailed setup, see **QUICK_START_MYSQL.md** or **DATABASE_SETUP.md**
+### Key Changes
+- `LoginViewModel` now detects platform and locks to appropriate mode
+- `MauiProgram.cs` registers only the platform-specific pages
+- Android users see only Customer login and interface
+- Windows users see only Admin login and interface
 
 ## ?? Architecture Overview
 
@@ -37,16 +34,16 @@ Repository & Services (Data Access & Utilities)
 MySQL Database
 ```
 
-### Data Flow with MySQL
+### Platform-Specific Flow
 ```
-App
- ?? MauiProgram
- ?   ?? Initialize DatabaseConfig
- ?       ?? Create Database & Tables
- ?           ?? Seed Sample Data
- ?? Views & ViewModels
-     ?? DataRepository
-         ?? MySQL Queries (Products, Orders, Customers)
+App Start
+?? Android
+?  ?? Customer Mode (Locked)
+?     ?? Login ? CustomerPage
+?
+?? Windows/Desktop
+   ?? Admin Mode (Locked)
+      ?? Login ? AdminPage
 ```
 
 ## ?? Project Structure
@@ -99,16 +96,16 @@ Data access layer with MySQL:
 MVVM ViewModels with INotifyPropertyChanged:
 
 - **BaseViewModel.cs**: Abstract base for all ViewModels
-- **LoginViewModel.cs**: Authentication (Customer/Admin)
+- **LoginViewModel.cs**: **Updated** - Platform detection and mode locking
 - **CustomerViewModel.cs**: Shopping experience
 - **AdminViewModel.cs**: Administration dashboard
 
 ### ?? Views
-XAML UI Pages (unchanged):
+XAML UI Pages (platform-aware):
 
-- **LoginPage.xaml**: Authentication screen
-- **CustomerPage.xaml**: Shopping interface
-- **AdminPage.xaml**: Admin dashboard
+- **LoginPage.xaml**: **Updated** - Platform-specific authentication
+- **CustomerPage.xaml**: Shopping interface (Android only)
+- **AdminPage.xaml**: Admin dashboard (Windows only)
 
 ### ?? Converters
 Value converters for XAML data binding
@@ -120,8 +117,8 @@ Value converters for XAML data binding
 ?? Products (Id, Name, Price, Stock, Category, Description, ImageUrl)
 ?
 ?? Customers (Id, Name, Email, Password, Address, PhoneNumber)
-?   ?? Orders (Id, CustomerId, OrderDate, Status)
-?       ?? OrderItems (Id, OrderId, ProductId, Quantity, UnitPrice)
+?  ?? Orders (Id, CustomerId, OrderDate, Status)
+?     ?? OrderItems (Id, OrderId, ProductId, Quantity, UnitPrice)
 ?
 ?? Admins (Id, Name, Email, Password, Department)
 ```
@@ -133,7 +130,7 @@ Value converters for XAML data binding
 
 ## ?? Default Credentials
 
-### Customer Accounts
+### Customer Accounts (Android Only)
 ```
 Email: john@example.com
 Password: password123
@@ -142,7 +139,7 @@ Email: jane@example.com
 Password: password123
 ```
 
-### Admin Account
+### Admin Account (Windows Only)
 ```
 Email: admin@apache.com
 Password: adminpass123
@@ -158,35 +155,61 @@ Password: adminpass123
 
 ### Platform-Specific Setup
 
-**Android (Recommended)**
+#### ?? Android (Customer Interface)
 ```bash
+# Build
 dotnet build -f net10.0-android
+
+# Run
 dotnet run -f net10.0-android
+
+# Features: Browse products, place orders, view order history
 ```
 
-**Windows Desktop**
+#### ??? Windows Desktop (Admin Interface)
 ```bash
+# Build
 dotnet build -f net10.0-windows10.0.19041.0
+
+# Run
 dotnet run -f net10.0-windows10.0.19041.0
+
+# Features: Manage products, view orders, admin dashboard
 ```
 
 ### First Run
 1. App starts
-2. `DatabaseConfig` automatically:
+2. **Platform Detection**:
+   - Android ? Customer mode (locked)
+   - Windows ? Admin mode (locked)
+3. `DatabaseConfig` automatically:
    - Connects to MySQL (localhost:3306)
    - Creates `apache_db` database
    - Creates all 5 tables
    - Seeds 5 products, 2 customers, 1 admin
-3. App is ready to use!
+4. App is ready to use!
 
 ### Test It Works
+
+**Android (Customer)**
 1. Login: `john@example.com` / `password123`
-2. Add product to cart
-3. Place order (saves to MySQL)
-4. Close app
-5. Reopen app ? Login again
-6. View past orders (still there!)
+2. Browse products
+3. Add product to cart
+4. Place order (saves to MySQL)
+5. Close app
+6. Reopen app ? Login again
+7. View past orders (still there!)
    - ? **If order appears = Database working!**
+
+**Windows (Admin)**
+1. Login: `admin@apache.com` / `adminpass123`
+2. View all products
+3. View all orders
+4. Manage inventory
+5. Close app
+6. Reopen app ? Login again
+7. Previous data is still there!
+   - ? **If data persists = Database working!**
 
 ## ?? Key OOP Concepts
 
@@ -214,7 +237,7 @@ public class Admin : User { /*...*/ }
 ### 3. Polymorphism
 ```csharp
 public abstract string GetUserRole();
-// Customer returns "Customer", Admin returns "Admin"
+// Customer returns "Customer", Admin returns "Administrator"
 ```
 
 ### 4. Composition
@@ -260,8 +283,9 @@ finally
 ```
 
 ### Recent Fixes
-- ? **NullReferenceException** - Added null-check guard in ExecutePlaceOrder()
-- ? **iOS Build** - Removed unnecessary iOS target
+- ? **Platform Detection** - Automatic mode selection based on device
+- ? **Mode Locking** - Cannot switch modes on platform-specific builds
+- ? **NullReferenceException** - Added null-check guards
 
 ## ?? Documentation Files
 
@@ -289,6 +313,23 @@ _connectionString = "Server=localhost;Database=apache_db;Uid=root;Pwd=root;";
 _connectionString = "Server=YOUR_SERVER;Database=YOUR_DB;Uid=YOUR_USER;Pwd=YOUR_PASSWORD;";
 ```
 
+### Platform-Specific Settings
+**File**: `Apache/MauiProgram.cs`
+
+The application automatically registers pages based on platform:
+```csharp
+if (DeviceInfo.Platform == DevicePlatform.Android)
+{
+    builder.Services.AddSingleton<CustomerPage>();
+    builder.Services.AddSingleton<CustomerViewModel>();
+}
+else 
+{
+    builder.Services.AddSingleton<AdminPage>();
+    builder.Services.AddSingleton<AdminViewModel>();
+}
+```
+
 ## ?? Learning Objectives
 
 This project teaches:
@@ -307,7 +348,7 @@ This project teaches:
 - MVVM Architecture
 - Repository Pattern
 - Singleton Pattern
-- Database initialization pattern
+- Platform-specific initialization pattern
 
 ? **Database Integration**
 - MySQL connectivity with ADO.NET
@@ -320,6 +361,7 @@ This project teaches:
 - Data binding and converters
 - Navigation and routing
 - Async/await patterns
+- Platform-specific code
 
 ## ?? Troubleshooting
 
@@ -336,19 +378,24 @@ This project teaches:
 - App will use existing database
 - To reset: `DROP DATABASE apache_db;` then restart app
 
+### "Wrong mode for my platform"
+- Android should show Customer mode
+- Windows should show Admin mode
+- If reversed, check `DeviceInfo.Platform` detection
+- Verify `MauiProgram.cs` configuration
+
 ### "Wrong password"
 - Update connection string in `DatabaseConfig.cs` with correct password
 
 ## ?? What's Changed from v1.0
 
-| Component | v1.0 | v2.0 |
+| Component | v1.0 | v3.0 |
 |-----------|------|------|
 | Data Storage | In-Memory Lists | MySQL Database |
 | Persistence | Lost on app close | Permanent on disk |
-| Multi-Instance | ? Not possible | ? Shared database |
-| Scalability | Limited | Unlimited |
-| ID Generation | Client-side counter | MySQL AUTO_INCREMENT |
-| Setup Time | Instant | 30 seconds (MySQL install) |
+| Android Build | Customer + Admin UI | **Customer Only** |
+| Windows Build | Customer + Admin UI | **Admin Only** |
+| Mode Selection | Manual toggle | **Automatic** |
 | Build Platforms | Android, iOS, Windows | Android, Windows |
 
 ## ?? Technology Stack
@@ -376,6 +423,7 @@ This project teaches:
 - ? **All Classes Compile**
 - ? **No Warnings**
 - ? **MySQL Integration Complete**
+- ? **Platform-Specific Builds Working**
 - ? **Ready for Testing & Deployment**
 
 ## ?? Support
@@ -386,11 +434,11 @@ This project teaches:
 
 ---
 
-**Version**: 2.0  
+**Version**: 3.0  
 **Last Updated**: 2025  
 **Status**: ? Production Ready  
 **Build**: ? Successful  
 **Tests**: ? Ready for QA  
 
-**Next Step**: Install MySQL and run the app!  
-See **QUICK_START_MYSQL.md** for 5-minute setup.
+**Architecture**: Android (Customer) ? Windows (Admin)  
+**Next Step**: Run the app on your target platform!  

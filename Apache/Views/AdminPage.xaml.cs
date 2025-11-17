@@ -24,11 +24,6 @@ public partial class AdminPage : ContentPage
             var idString = Shell.Current.CurrentState.Location.OriginalString.Split("id=")[1];
             if (int.TryParse(idString, out int adminId))
             {
-                // For now, we'll use a direct admin lookup
-                // In a real app, you'd retrieve from database/repository
-                var repository = DataRepository.Instance;
-                var allOrders = repository.GetAllOrders();
-                
                 // Initialize the admin view (ID is verified during login)
                 var admin = new Apache.Models.Admin 
                 { 
@@ -36,9 +31,35 @@ public partial class AdminPage : ContentPage
                     Name = "Administrator",
                     Department = "Management"
                 };
-                
                 _viewModel.InitializeWithAdmin(admin);
             }
+        }
+    }
+
+    private void ProductsCollection_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection != null && e.CurrentSelection.Count > 0)
+        {
+            var product = e.CurrentSelection[0] as Apache.Models.Product;
+            _viewModel.SelectedProduct = product;
+        }
+    }
+
+    private void OrdersCollection_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection != null && e.CurrentSelection.Count > 0)
+        {
+            var order = e.CurrentSelection[0] as Apache.Models.Order;
+            _viewModel.SelectedOrder = order;
+        }
+    }
+
+    private void CustomersCollection_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection != null && e.CurrentSelection.Count > 0)
+        {
+            var customer = e.CurrentSelection[0] as Apache.Models.Customer;
+            _viewModel.SelectedCustomer = customer;
         }
     }
 }

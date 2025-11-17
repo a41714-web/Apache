@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+	<connectionStrings>
+		<add name="Database"
+		     connectionString="Server=localhost;Database=apache_db;Uid=root;Password=A12345-a"
+		     providerName="MySql.Data.MySqlClient" />
+		<add name="NoDatabase"
+		     connectionString="Server=localhost;Uid=root;Password=A12345-a"
+		     providerName="MySql.Data.MySqlClient" />
+	</connectionStrings>
+</configuration>

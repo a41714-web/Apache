@@ -17,7 +17,6 @@ public partial class CustomerPage : ContentPage
     protected override void OnNavigatedTo(NavigatedToEventArgs args)
     {
         base.OnNavigatedTo(args);
-        
         // Get customer ID from query parameters
         if (Shell.Current.CurrentState.Location.OriginalString.Contains("id="))
         {

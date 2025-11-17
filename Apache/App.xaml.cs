@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Devices;
 
 namespace Apache
 {
@@ -17,7 +18,7 @@ namespace Apache
         protected override async void OnStart()
         {
             base.OnStart();
-            // Navigate to login page
+            // Navigate to login page - all platforms start at login
             await Shell.Current.GoToAsync("//login");
         }
     }
